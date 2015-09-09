@@ -47,6 +47,7 @@
 #                         added inc_r switch for drilling R value output  
 #                         updated live tool control, mtlchg$
 # MLC 05/11/11 - update pindex, pindexdrl, post blocks, jcw
+# MLC 09/09/15 - updated per customer request, jjm
 #
 # --------------------------------------------------------------------------
 # Features:
@@ -302,7 +303,7 @@ css_end_rpm  : no$   # Do direct RPM spindle prior to Retract?
 
 prog_stop    : 1      # Program stop at toolchange: 0=None, 1=M01, 2 = M00
 
-tool_info    : 3          # Output tool information?
+tool_info    : 1          # Output tool information?
                                 # 0 = Off - Do not output any tool comments or tool table
                                 # 1 = Tool comments only
                                 # 2 = Tool table only
@@ -957,8 +958,8 @@ strs        : "S"     #String for address S
 stry        : "Y"     #String for address Y
 sc_minus    : "-"     #Manipulated string for signed rotary minus
 
-sunclmp_main : "M11 (UNCLAMP MAIN)"    #String Definition
-sclmp_main   : "M10 (CLAMP MAIN)"         #String Definition
+sunclmp_main : "M10 (UNCLAMP MAIN)"    #String Definition
+sclmp_main   : "M11 (CLAMP MAIN)"         #String Definition
 sunclmp_sub  : "M111 (UNCLAMP SUB)"   #String Definition
 sclmp_sub    : "M110 (CLAMP SUB)"         #String Definition
 
@@ -1286,7 +1287,7 @@ fstrsel sindx_cw indx_mc sindx_mc 2 -1
 # --------------------------------------------------------------------------
 # C axis mode
 sm23 : ""    #M23     #Main C axis enable
-sm24 : "M05"    #M24     #C axis disable
+sm24 : ""    #M24     #C axis disable
 sm223 : ""   #M223    #Sub C axis enable
 sm224 : ""   #M224    #Sub C axis disable
 # --------------------------------------------------------------------------
@@ -1718,8 +1719,8 @@ ptime           #Convert 24-hour time format into 12-hour AM/PM format
       else, " AM"
 
 pheader_custom         #Start of file
-      if b_prompt, q1 #Get bar out value   #5/29/08
-      if bar_out, q2  # Get Z Bar Stop Value
+      #if b_prompt, q1 #Get bar out value   #5/29/08
+      #if bar_out, q2  # Get Z Bar Stop Value
       "%", e$
       !spaces$
       spaces$ = zero
@@ -1809,7 +1810,8 @@ ltlchg$          #Toolchange, lathe
 
      if not(sof_flg2), [
       n$, "G0 G40", e$
-      pl_retract]
+      pl_retract
+      n$, sm01, e$]
       if mctcmnt, ptoolcomment  #5/29/08
       comment$
       if sp_select,  psp_select   #5/29/08
@@ -1845,21 +1847,20 @@ ltlchg$          #Toolchange, lathe
         if omitseq$ = 1 & tseqno > 0,
           [
           if tseqno = 2, n$ = t$
-          pbld, *n$, [if home_type = -1, *sgcode], *toolno, [if not(mctcmnt), 40, *strtool$, 41], e$
+          pbld, *n$, [if home_type = -1, *sgcode], *toolno, [if not(mctcmnt), ], e$ #*strtool$, 
           n$, "M06", e$
           ]
-        else, [pbld, n$, [if home_type = -1, *sgcode], *toolno, [if not(mctcmnt), 40, *strtool$, 41], e$
+        else, [pbld, n$, [if home_type = -1, *sgcode], *toolno, [if not(mctcmnt), ], e$ #*strtool$,
           n$, "M06", e$]
         ]
+      
       ipr_actv$ = c1_ipr_actv
-      pbld, n$, pfsgplane, pfsgfeed, e$
+      #pbld, n$, pfsgplane, pfsgfeed, e$
       if mt_flg, pcaxis_off_l  #Postblock for lathe transition 
       pcom_moveb    #Reset machine position, set inc. from last position
       pcan
-
       if sub_spdl, psubspd
       else, psnglspd
-
       if lcc_cc_pos, plcc_cc_pos  #Use sav_xa to position with comp. LCC
       pcom_movea    #Update previous, pcan2
       ps_inc_calc   #Reset current
@@ -1890,6 +1891,7 @@ mtlchg$          #Toolchange, mill
       n$, "G0 G40", e$
       if prv_posttype$ = two, n$, sm05, e$
       pm_retract
+      n$, sm01, e$
       ]
 
       if mctcmnt, ptoolcomment  #5/29/08
@@ -3853,16 +3855,17 @@ pstck_bar_fd$    #NCI code = 902 available variables:
                  toolend_flg = one  #DO execute ptoolend after xfer
 
                 [
-                  !spaces$
-                  spaces$ = zero
+                  #!spaces$
+                  #spaces$ = zero
+                  pbld, n$, "G04 P1.", e$
                   pbld, n$, "M00",e$
                   if prv_spaces$ > 0, " ",e$
-                  if stck_op$ = 0, "(Push stock -",e$
-                  if stck_op$ = 1, "(Push stock with Use Tool Stop option -",e$
-                  if stck_op$ = 2, "(Pull stock -",e$
+                  if stck_op$ = 0, "(Push stock -"
+                  if stck_op$ = 1, "(Push stock with Use Tool Stop option -"
+                  if stck_op$ = 2, "(Pull stock -"
                   if stck_spindle$ = 0, " from Left Spindle)", e$
                   if stck_spindle$ = 1, " from Right Spindle)", e$
-                  spaces$ = prv_spaces$
+                  #spaces$ = prv_spaces$
                 ]
 
 pchuck$          #NCI code = 903 available variables:
@@ -4390,7 +4393,8 @@ psub_end_s$      #End in sub level
 
 pbar_feed       #Bar stop  #5/29/08
             zabs = stck_clear$
-        n$, *sgcode, pfxout, pyout, pfzout, *sunclmp_main, e$
+        n$, *sgcode, pfxout, pyout, *sunclmp_main, e$
+            n$, pfzout, e$
             n$, "G04 P3.", e$
         n$, *sclmp_main, e$
             zabs = stck_final_z$, e$
